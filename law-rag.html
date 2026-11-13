@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>法律 RAG 問答 Demo</title>
+    <style>
+      :root {
+        --bg: #f3f6fb;
+        --panel: #ffffff;
+        --line: #dfe7f1;
+        --text: #1e2c3a;
+        --muted: #5d7286;
+        --primary: #1c7ad6;
+        --primary-soft: #eaf3ff;
+        --accent: #0f766e;
+        --warning: #f5a623;
+        --danger: #c94949;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+        background: linear-gradient(180deg, #eef4fb 0%, #f7f9fc 100%);
+        color: var(--text);
+      }
+
+      .wrap {
+        max-width: 1200px;
+        margin: 40px auto;
+        padding: 0 20px 48px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        padding: 18px 22px;
+        margin-bottom: 24px;
+        background: rgba(255,255,255,0.9);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: 0 8px 24px rgba(23,40,59,0.04);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+        font-size: 1.1rem;
+      }
+
+      .brand-mark {
+        display: inline-grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        color: white;
+        background: linear-gradient(135deg, var(--primary), #4cb0ff);
+      }
+
+      .chip {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--primary-soft);
+        color: var(--primary);
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1.3fr 0.7fr;
+        gap: 24px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(16, 37, 56, 0.04);
+      }
+
+      .panel-main {
+        padding: 26px 24px 18px;
+      }
+
+      .panel-side {
+        padding: 22px 20px;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2rem, 4vw, 2.8rem);
+      }
+
+      .subtitle {
+        margin: 0 0 22px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .prompt-box {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 140px;
+        padding: 16px 18px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        font-size: 1rem;
+        resize: vertical;
+        background: #fafcff;
+        color: var(--text);
+      }
+
+      textarea:focus {
+        outline: 2px solid rgba(28,122,214,0.18);
+        border-color: var(--primary);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      button {
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--primary), #358ce5);
+        color: white;
+        padding: 12px 18px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 12px 24px rgba(29,112,194,0.2);
+      }
+
+      .ghost {
+        background: #eef5ff;
+        color: var(--primary);
+        box-shadow: none;
+      }
+
+      .result {
+        margin-top: 22px;
+        padding: 18px 18px 4px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: linear-gradient(180deg, #f9fbff, #ffffff);
+      }
+
+      .answer-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .answer-title {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+
+      .badge {
+        display: inline-flex;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: #edf9f6;
+        color: var(--accent);
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+
+      .answer-box {
+        margin: 0;
+        line-height: 1.9;
+        color: var(--text);
+        white-space: pre-line;
+      }
+
+      .source-list {
+        margin-top: 18px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .source-list li {
+        margin-top: 10px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #f8fbff;
+        line-height: 1.7;
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: 1.15rem;
+      }
+
+      .knowledge-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 10px;
+      }
+
+      .knowledge-item {
+        padding: 12px 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fafcff;
+        cursor: pointer;
+        transition: transform 0.15s ease, border-color 0.15s ease;
+      }
+
+      .knowledge-item:hover {
+        transform: translateY(-1px);
+        border-color: #bfdaf7;
+      }
+
+      .knowledge-title {
+        font-weight: 700;
+        margin-bottom: 7px;
+      }
+
+      .knowledge-text {
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.7;
+      }
+
+      .small-note {
+        margin-top: 18px;
+        font-size: 0.84rem;
+        color: var(--muted);
+        line-height: 1.8;
+      }
+
+      @media (max-width: 820px) {
+        .layout { grid-template-columns: 1fr; }
+        .topbar { flex-direction: column; align-items: flex-start; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar">
+        <div class="brand">
+          <span class="brand-mark">RAG</span>
+          <span>法律查詢問答 Demo</span>
+        </div>
+        <div class="chip">檢索增強生成（RAG）</div>
+      </div>
+
+      <div class="layout">
+        <section class="panel panel-main">
+          <h1>法律問答測試平台</h1>
+          <p class="subtitle">
+            這個示範頁面模擬簡單的 RAG 流程：先檢索相關法務知識，再整合內容回答問題。
+            你可以直接輸入問題，或選擇右側的測試題目。
+          </p>
+
+          <div class="prompt-box">
+            <textarea id="questionInput" placeholder="例如：公司沒有支付加班費，員工可怎麼處理？">公司沒有支付加班費，員工可以怎麼處理？</textarea>
+            <div class="actions">
+              <button id="askBtn">提交問題</button>
+              <button class="ghost" id="clearBtn" type="button">清空</button>
+            </div>
+          </div>
+
+          <div class="result">
+            <div class="answer-head">
+              <h2 class="answer-title">回答結果</h2>
+              <span class="badge">檢索後答案</span>
+            </div>
+            <pre class="answer-box" id="answerBox">輸入問題後，這裡會顯示檢索後的回答。</pre>
+            <ul class="source-list" id="sourcesList"></ul>
+          </div>
+        </section>
+
+        <aside class="panel panel-side">
+          <h2>測試問題</h2>
+          <div class="knowledge-list" id="questionList"></div>
+
+          <div class="small-note">
+            這不是正式法律意見，僅作為 RAG 概念展示與前端原型測試。
+            若要做正式法務系統，建議再接上完整法條資料庫、向量資料庫與事實驗證流程。
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const knowledgeBase = [
+        {
+          title: '加班費',
+          keywords: ['加班費', '加班', '工作時間', '工資', '勞工', '勞基法'],
+          content: '員工於法定工作時間外工作，若符合加班認定，雇主應依相關法規支付加班費。若雇主未支付，員工可先以書面方式向公司主張，必要時可向勞工行政主管機關申訴，或透過司法途徑請求。加班費計算需依實際工作時數與工資計算原則，不得僅以固定薪資代替。'
+        },
+        {
+          title: '未成年人簽約',
+          keywords: ['未成年人', '契約', '簽約', '法定代理人', '成年人'],
+          content: '未成年人一般不宜單獨處理重大契約，尤其是長期勞動契約、重大權利義務之安排。若契約內容涉及重大權利、瑕疵或違法，可能存在效力問題，應由法定代理人或專業人士確認。'
+        },
+        {
+          title: '個人資料保護',
+          keywords: ['個資', '個人資料', '同意', '蒐集', '敏感資料', '個資法'],
+          content: '企業蒐集個人資料時，需有合法目的、必要性與明確範圍，並告知當事人資料用途、保存期間、提供對象與權利。若涉及敏感資料，通常須有更嚴格的合法依據與明確同意。當事人有查詢、補充、更正、刪除或停止處理之權利。'
+        },
+        {
+          title: '商品瑕疵與退貨',
+          keywords: ['瑕疵', '商品', '退貨', '換貨', '消費者', '解除契約'],
+          content: '若商品未符合說明、存在瑕疵或交付錯誤，消費者通常可主張瑕疵擔保、退貨、換貨、修理、解除契約或損害賠償。實務上可先與業者協商，必要時再透過消費者保護機制或法院救濟。'
+        },
+        {
+          title: '離職與商業秘密',
+          keywords: ['離職', '商業秘密', '客戶名單', '保密', '營業秘密'],
+          content: '一般公開資訊通常不受限制，但客戶名單、技術資訊、交易資訊等，若屬於公司之營業秘密或受保密契約拘束，離職員工不得任意帶走或使用。若有違反保密義務，雇主可請求停止侵害與損害賠償。'
+        },
+        {
+          title: '契約違反公序良俗',
+          keywords: ['公序良俗', '契約無效', '無效', '撤銷', '違法'],
+          content: '若契約內容明顯違反法律、公共秩序或善良風俗，該契約可能為無效或可撤銷。是否屬於此類情形，需視具體內容、交易目的與法規判斷，不能僅憑表面文字直接下結論。'
+        }
+      ];
+
+      const presetQuestions = [
+        '公司沒有支付加班費，員工可以怎麼處理？',
+        '未成年人可以簽訂勞動契約嗎？',
+        '公司蒐集員工個資需要事前同意嗎？',
+        '線上購物商品有瑕疵，消費者可以要求什麼救濟？',
+        '離職員工能不能把客戶名單帶走？',
+        '契約內容違反公序良俗，是否一定無效？'
+      ];
+
+      function scoreKnowledge(question, entry) {
+        const q = question.toLowerCase();
+        let score = 0;
+        for (const keyword of entry.keywords) {
+          const k = keyword.toLowerCase();
+          if (q.includes(k)) score += 2;
+        }
+        if (q.includes(entry.title.toLowerCase())) score += 1;
+        return score;
+      }
+
+      function retrieve(question) {
+        const scored = knowledgeBase
+          .map(entry => ({ entry, score: scoreKnowledge(question, entry) }))
+          .sort((a, b) => b.score - a.score)
+          .filter(item => item.score > 0)
+          .slice(0, 3);
+
+        if (scored.length === 0) {
+          return [{ entry: { title: '相關資料不足', content: '目前知識庫中沒有匹配到明確相關內容，建議補充法規資料或檢查問題是否過於抽象。' }, score: 0 }];
+        }
+        return scored;
+      }
+
+      function buildAnswer(question) {
+        const relevant = retrieve(question);
+        const best = relevant[0].entry;
+
+        let conclusion = '';
+        const q = question.toLowerCase();
+
+        if (q.includes('加班') || q.includes('加班費')) {
+          conclusion = '一般來說，若員工符合加班認定，雇主應依相關規定支付加班費。員工可先向公司主張，必要時可向勞工主管機關申訴或循司法途徑請求。';
+        } else if (q.includes('未成年人') || q.includes('簽約') || q.includes('契約')) {
+          conclusion = '未成年人不宜單獨處理重大契約，若契約內容涉及重大權利義務或法令限制，應由法定代理人或專業人士確認，避免因效力問題造成風險。';
+        } else if (q.includes('個資') || q.includes('資料') || q.includes('同意')) {
+          conclusion = '企業蒐集個人資料時，應有合法目的、必要性與明確告知，且對敏感資料要求更嚴格的合法依據與明確同意。';
+        } else if (q.includes('瑕疵') || q.includes('退貨') || q.includes('商品')) {
+          conclusion = '若商品未符合說明、存在瑕疵或交付錯誤，消費者通常可主張退貨、換貨、修理、解除契約或損害賠償；可先協商，必要時再透過消費者保護機制或法院救濟。';
+        } else if (q.includes('離職') || q.includes('客戶') || q.includes('商業秘密')) {
+          conclusion = '離職員工是否可帶走客戶名單，取決於資料是否屬於商業秘密、是否受保密契約拘束，以及是否屬於職務範圍內資訊。';
+        } else if (q.includes('公序良俗') || q.includes('無效')) {
+          conclusion = '若契約內容明顯違反法律、公共秩序或善良風俗，可能構成無效或可撤銷；但仍需視具體內容與法令判斷。';
+        } else {
+          conclusion = '基於現有法務知識庫，建議先確認相關事實與適用法規，並以具體資料為基礎進一步評估。';
+        }
+
+        const sourceText = relevant.map(item => '- ' + item.entry.title + '：' + item.entry.content).join('\n');
+
+        return {
+          answer: [
+            '結論：',
+            conclusion,
+            '',
+            '依據：',
+            sourceText,
+            '',
+            '注意事項：',
+            '1. 這是 RAG 示範回答，不是正式法律意見。',
+            '2. 若涉及實際案件，仍需確認事實、契約內容、法規適用與證據。',
+            '3. 若資訊不足，應明確說明缺少法規或案例背景。'
+          ].join('\n'),
+          sources: relevant.map(item => item.entry.title + '：' + item.entry.content)
+        };
+      }
+
+      function renderQuestionList() {
+        const list = document.getElementById('questionList');
+        for (const q of presetQuestions) {
+          const item = document.createElement('div');
+          item.className = 'knowledge-item';
+          item.innerHTML = '<div class="knowledge-title">測試題目</div><div class="knowledge-text">' + q + '</div>';
+          item.addEventListener('click', () => {
+            document.getElementById('questionInput').value = q;
+            ask();
+          });
+          list.appendChild(item);
+        }
+      }
+
+      function ask() {
+        const question = document.getElementById('questionInput').value.trim();
+        if (!question) {
+          document.getElementById('answerBox').textContent = '請先輸入問題。';
+          document.getElementById('sourcesList').innerHTML = '';
+          return;
+        }
+
+        const result = buildAnswer(question);
+        document.getElementById('answerBox').textContent = result.answer;
+
+        const sources = document.getElementById('sourcesList');
+        sources.innerHTML = '';
+        result.sources.forEach(source => {
+          const li = document.createElement('li');
+          li.textContent = source;
+          sources.appendChild(li);
+        });
+      }
+
+      document.getElementById('askBtn').addEventListener('click', ask);
+      document.getElementById('clearBtn').addEventListener('click', () => {
+        document.getElementById('questionInput').value = '';
+        document.getElementById('answerBox').textContent = '輸入問題後，這裡會顯示檢索後的回答。';
+        document.getElementById('sourcesList').innerHTML = '';
+      });
+
+      renderQuestionList();
+      ask();
+    </script>
+  </body>
+</html>
