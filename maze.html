@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>迷宮挑戰</title>
+  <style>
+    :root {
+      --ink: #17252f;
+      --muted: #61717a;
+      --paper: #f5f0e8;
+      --panel: #fffdf8;
+      --accent: #e56b4e;
+      --wall: #263944;
+      --path: #dceadf;
+      --goal: #f4c95d;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--ink);
+      font-family: Georgia, "Noto Serif TC", serif;
+      background: radial-gradient(circle at 20% 15%, #fff9df 0 12%, transparent 32%),
+                  linear-gradient(135deg, #e8efe7, var(--paper));
+    }
+
+    .game {
+      width: min(760px, 100%);
+      padding: clamp(20px, 5vw, 42px);
+      background: var(--panel);
+      border: 1px solid #d7d0c4;
+      box-shadow: 12px 14px 0 #c8d4cd;
+    }
+
+    header { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 20px; }
+    h1 { margin: 0; font-size: clamp(2rem, 6vw, 4rem); letter-spacing: 0; line-height: .95; }
+    .subtitle { margin: 8px 0 0; color: var(--muted); font-size: .98rem; }
+    .status { text-align: right; color: var(--accent); font-weight: bold; min-width: 110px; }
+
+    .board-wrap { position: relative; width: min(100%, 580px); margin: auto; }
+    canvas { display: block; width: 100%; height: auto; border: 8px solid var(--wall); background: var(--path); image-rendering: pixelated; }
+    .controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 18px; }
+    button { border: 0; padding: 11px 16px; color: white; background: var(--accent); font: inherit; font-weight: bold; cursor: pointer; box-shadow: 4px 4px 0 #b64d37; }
+    button:hover { transform: translate(-1px, -1px); }
+    .hint { margin: 0; color: var(--muted); font-size: .9rem; }
+    @media (max-width: 500px) { header { display: block; } .status { margin-top: 14px; text-align: left; } .controls { align-items: start; flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <main class="game">
+    <header>
+      <div>
+        <h1>迷宮挑戰</h1>
+        <p class="subtitle">找到出口，穿過所有正確的路。</p>
+      </div>
+      <div class="status" id="status">準備開始</div>
+    </header>
+
+    <section class="board-wrap" aria-label="迷宮遊戲區域">
+      <canvas id="maze" width="560" height="560"></canvas>
+    </section>
+
+    <div class="controls">
+      <p class="hint">使用方向鍵或 W A S D 移動紅色圓點</p>
+      <div>
+        <button id="solve" type="button">自動找路</button>
+        <button id="restart" type="button">重新開始</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let layout;
+    const canvas = document.getElementById("maze");
+    const context = canvas.getContext("2d");
+    const status = document.getElementById("status");
+    const cell = canvas.width / 13;
+    const start = { x: 1, y: 1 };
+    const goal = { x: 11, y: 11 };
+    let player = { ...start };
+    let moves = 0;
+    let solving = false;
+    let solveRun = 0;
+
+    function createMaze() {
+      const size = 13;
+      const maze = Array.from({ length: size }, () => Array(size).fill("1"));
+      const visited = new Set();
+      const directions = [[2, 0], [-2, 0], [0, 2], [0, -2]];
+
+      function carve(x, y) {
+        visited.add(`${x},${y}`);
+        maze[y][x] = "0";
+        const shuffled = [...directions].sort(() => Math.random() - 0.5);
+        for (const [dx, dy] of shuffled) {
+          const nextX = x + dx;
+          const nextY = y + dy;
+          const key = `${nextX},${nextY}`;
+          if (nextX > 0 && nextX < size - 1 && nextY > 0 && nextY < size - 1 && !visited.has(key)) {
+            maze[y + dy / 2][x + dx / 2] = "0";
+            carve(nextX, nextY);
+          }
+        }
+      }
+
+      carve(start.x, start.y);
+      return maze.map((row) => row.join(""));
+    }
+
+    function draw() {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < layout.length; y++) {
+        for (let x = 0; x < layout[y].length; x++) {
+          context.fillStyle = layout[y][x] === "1" ? "#263944" : "#dceadf";
+          context.fillRect(x * cell, y * cell, cell, cell);
+        }
+      }
+      context.fillStyle = "#f4c95d";
+      context.fillRect(goal.x * cell + 5, goal.y * cell + 5, cell - 10, cell - 10);
+      context.fillStyle = "#e56b4e";
+      context.beginPath();
+      context.arc(player.x * cell + cell / 2, player.y * cell + cell / 2, cell * .3, 0, Math.PI * 2);
+      context.fill();
+    }
+
+    function move(dx, dy) {
+      if (solving) return;
+      const next = { x: player.x + dx, y: player.y + dy };
+      if (layout[next.y]?.[next.x] !== "0") return;
+      player = next;
+      moves++;
+      if (player.x === goal.x && player.y === goal.y) {
+        status.textContent = `成功！共走 ${moves} 步`;
+      } else {
+        status.textContent = `步數：${moves}`;
+      }
+      draw();
+    }
+
+    function findShortestPath() {
+      const queue = [{ ...player }];
+      const visited = new Set([`${player.x},${player.y}`]);
+      const previous = new Map();
+      const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+      while (queue.length) {
+        const current = queue.shift();
+        if (current.x === goal.x && current.y === goal.y) {
+          const path = [];
+          let position = current;
+          while (position) {
+            path.unshift(position);
+            position = previous.get(`${position.x},${position.y}`);
+          }
+          return path;
+        }
+        for (const [dx, dy] of directions) {
+          const next = { x: current.x + dx, y: current.y + dy };
+          const key = `${next.x},${next.y}`;
+          if (layout[next.y]?.[next.x] === "0" && !visited.has(key)) {
+            visited.add(key);
+            previous.set(key, current);
+            queue.push(next);
+          }
+        }
+      }
+      return [];
+    }
+
+    async function solveMaze() {
+      if (solving || (player.x === goal.x && player.y === goal.y)) return;
+      const path = findShortestPath();
+      if (!path.length) {
+        status.textContent = "找不到可行路徑";
+        return;
+      }
+      solving = true;
+      const currentRun = ++solveRun;
+      status.textContent = "正在尋找最短路徑...";
+      for (const position of path.slice(1)) {
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        if (currentRun !== solveRun) return;
+        player = position;
+        moves++;
+        status.textContent = `自動前進：${moves} 步`;
+        draw();
+      }
+      solving = false;
+      status.textContent = `成功！最短路徑 ${moves} 步`;
+    }
+
+    document.addEventListener("keydown", (event) => {
+      const keys = { ArrowUp: [0, -1], w: [0, -1], ArrowDown: [0, 1], s: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], ArrowRight: [1, 0], d: [1, 0] };
+      const direction = keys[event.key];
+      if (direction) { event.preventDefault(); move(...direction); }
+    });
+
+    document.getElementById("restart").addEventListener("click", () => {
+      solving = false;
+      solveRun++;
+      layout = createMaze();
+      player = { ...start };
+      moves = 0;
+      status.textContent = "準備開始";
+      draw();
+    });
+
+    document.getElementById("solve").addEventListener("click", solveMaze);
+
+    layout = createMaze();
+    draw();
+  </script>
+</body>
+</html>
