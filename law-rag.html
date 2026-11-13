@@ -204,6 +204,41 @@
         line-height: 1.7;
       }
 
+      .process {
+        margin-top: 22px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+      }
+
+      .process-list {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .process-step {
+        padding: 13px 15px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #f8fbff;
+      }
+
+      .process-step h3 {
+        margin: 0 0 6px;
+        font-size: 0.96rem;
+      }
+
+      .process-step p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+        white-space: pre-line;
+      }
+
       h2 {
         margin: 0 0 12px;
         font-size: 1.15rem;
@@ -288,6 +323,16 @@
             <pre class="answer-box" id="answerBox">輸入問題後，這裡會顯示檢索後的回答。</pre>
             <ul class="source-list" id="sourcesList"></ul>
           </div>
+
+          <section class="process" aria-labelledby="processHeading">
+            <h2 id="processHeading">問答過程</h2>
+            <ol class="process-list" id="processList" aria-live="polite">
+              <li class="process-step">
+                <h3>等待提問</h3>
+                <p>送出問題後，這裡會逐步說明系統如何理解問題、檢索資料並整理回答。</p>
+              </li>
+            </ol>
+          </section>
         </section>
 
         <aside class="panel panel-side">
@@ -412,8 +457,55 @@
             '2. 若涉及實際案件，仍需確認事實、契約內容、法規適用與證據。',
             '3. 若資訊不足，應明確說明缺少法規或案例背景。'
           ].join('\n'),
-          sources: relevant.map(item => item.entry.title + '：' + item.entry.content)
+          sources: relevant.map(item => item.entry.title + '：' + item.entry.content),
+          relevant
         };
+      }
+
+      function getQuestionTopic(question, relevant) {
+        if (relevant[0].score === 0) return '未能判定（目前知識庫僅收錄勞動法）';
+        return relevant[0].entry.topic || '勞動法';
+      }
+
+      function renderProcess(question, result) {
+        const processList = document.getElementById('processList');
+        const topResult = result.relevant[0];
+        const steps = [
+          {
+            title: '1. 理解問題',
+            detail: '收到問題：「' + question + '」\n判定主題：' + getQuestionTopic(question, result.relevant) + '。'
+          },
+          {
+            title: '2. 檢索知識庫',
+            detail: topResult.score > 0
+              ? '使用本頁的關鍵字比對方式，從勞動法資料庫選出 ' + result.relevant.length + ' 筆相關資料。排序最高的是「' + topResult.entry.title + '」（比對分數 ' + topResult.score + '）。'
+              : '沒有找到關鍵字相符的資料，因此不把其他主題的資料當成法律依據。'
+          },
+          {
+            title: '3. 整理回答',
+            detail: topResult.score > 0
+              ? '根據檢索結果整理出結論，並在回答下方列出參考資料；回答內容以一般資訊表達，不替個案作確定法律判斷。'
+              : '目前資料不足以回答這個問題。建議改問勞動法相關議題，或補充適用地區、事件時間與具體情況。'
+          },
+          {
+            title: '4. 檢查限制',
+            detail: '這是前端教學 Demo：目前用固定知識內容與關鍵字分數模擬檢索，沒有連接即時法規、判決、向量資料庫或 AI 模型。正式使用前請核對現行法令並諮詢專業人士。'
+          }
+        ];
+
+        processList.replaceChildren();
+        for (const step of steps) {
+          const item = document.createElement('li');
+          item.className = 'process-step';
+
+          const heading = document.createElement('h3');
+          heading.textContent = step.title;
+          const detail = document.createElement('p');
+          detail.textContent = step.detail;
+
+          item.append(heading, detail);
+          processList.appendChild(item);
+        }
       }
 
       function renderQuestionList() {
@@ -435,11 +527,13 @@
         if (!question) {
           document.getElementById('answerBox').textContent = '請先輸入問題。';
           document.getElementById('sourcesList').innerHTML = '';
+          document.getElementById('processList').replaceChildren();
           return;
         }
 
         const result = buildAnswer(question);
         document.getElementById('answerBox').textContent = result.answer;
+        renderProcess(question, result);
 
         const sources = document.getElementById('sourcesList');
         sources.innerHTML = '';
@@ -455,6 +549,7 @@
         document.getElementById('questionInput').value = '';
         document.getElementById('answerBox').textContent = '輸入問題後，這裡會顯示檢索後的回答。';
         document.getElementById('sourcesList').innerHTML = '';
+        document.getElementById('processList').replaceChildren();
       });
 
       renderQuestionList();
